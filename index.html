@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>校園尋物牆 | 匿名尋物留言板</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(145deg, #f0f7ff 0%, #e9eef5 100%);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+
+        /* 主容器 */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* 標頭 */
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 2.4rem;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .header p {
+            color: #4a627a;
+            margin-top: 0.5rem;
+            font-weight: 500;
+        }
+
+        /* 新增表單卡片 */
+        .form-card {
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.15);
+            padding: 1.5rem 1.8rem;
+            margin-bottom: 2rem;
+            transition: all 0.2s;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
+        .input-group {
+            flex: 3;
+            min-width: 200px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #2c3e66;
+            margin-bottom: 0.3rem;
+            letter-spacing: 0.3px;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border-radius: 40px;
+            border: 1.5px solid #e2e8f0;
+            background: #fefefe;
+            font-size: 0.95rem;
+            transition: 0.2s;
+            outline: none;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
+        }
+
+        .btn-primary {
+            background: #1e4b8f;
+            border: none;
+            padding: 0.8rem 1.8rem;
+            border-radius: 40px;
+            font-weight: bold;
+            color: white;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+            white-space: nowrap;
+        }
+
+        .btn-primary:hover {
+            background: #0f3b6f;
+            transform: translateY(-2px);
+        }
+
+        /* 過濾器區域 */
+        .filters-panel {
+            background: rgba(255,255,255,0.75);
+            backdrop-filter: blur(4px);
+            border-radius: 60px;
+            padding: 0.8rem 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(255,255,255,0.8);
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-label {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 0.85rem;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            background: #f1f5f9;
+            border: none;
+            padding: 0.4rem 1rem;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+            color: #1e293b;
+        }
+
+        .filter-btn.active {
+            background: #1e4b8f;
+            color: white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        /* 卡片網格 */
+        .records-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* 卡片設計 */
+        .card {
+            background: white;
+            border-radius: 28px;
+            padding: 1.3rem 1.5rem;
+            transition: all 0.25s ease;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid #eef2ff;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 30px -12px rgba(0, 0, 0, 0.15);
+        }
+
+        .card.done-card {
+            background: #f9fafc;
+            opacity: 0.85;
+            border-left: 8px solid #34a853;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            flex-wrap: wrap;
+            margin-bottom: 0.6rem;
+        }
+
+        .category-badge {
+            background: #e6edf6;
+            padding: 0.2rem 0.8rem;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #1e4b8f;
+        }
+
+        .status-badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.7rem;
+            border-radius: 30px;
+            background: #e2f0e6;
+            color: #2e6b3e;
+        }
+
+        .status-badge.done {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+
+        .content-text {
+            font-size: 1rem;
+            line-height: 1.4;
+            margin: 0.8rem 0;
+            color: #0f172a;
+            font-weight: 500;
+            word-break: break-word;
+        }
+
+        .meta-info {
+            font-size: 0.7rem;
+            color: #5b6e8c;
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 1rem;
+            border-top: 1px dashed #eef2f0;
+            padding-top: 0.6rem;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 0.8rem;
+            margin-top: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-like {
+            background: #fff0f0;
+            border: none;
+            padding: 0.4rem 1rem;
+            border-radius: 40px;
+            font-weight: 600;
+            color: #c2410c;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-like:hover {
+            background: #ffe4e4;
+            transform: scale(0.97);
+        }
+
+        .btn-toggle {
+            background: #eef2ff;
+            border: none;
+            padding: 0.4rem 1rem;
+            border-radius: 40px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-toggle:hover {
+            background: #dee4fc;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            background: rgba(255,255,240,0.5);
+            border-radius: 48px;
+            color: #5a6e8a;
+            font-size: 1rem;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 2.5rem;
+            font-size: 0.7rem;
+            color: #6c86a3;
+        }
+
+        @media (max-width: 640px) {
+            .form-card {
+                padding: 1rem;
+            }
+            .filters-panel {
+                border-radius: 28px;
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📌 校園尋物牆</h1>
+        <p>匿名協尋｜讓遺失物快點回家</p>
+    </div>
+
+    <!-- 新增帖文表單 -->
+    <div class="form-card">
+        <div class="form-row">
+            <div class="input-group" style="flex:4">
+                <label>📝 找什麼東西？ (必填)</label>
+                <input type="text" id="contentInput" placeholder="例如：灰色筆電包，在三餐掉了一隻AirPods..." autocomplete="off">
+            </div>
+            <div class="input-group" style="flex:1.5">
+                <label>📂 分類</label>
+                <select id="categorySelect">
+                    <option value="書本">📖 書本</option>
+                    <option value="文具">✒️ 文具</option>
+                    <option value="生活用品">🧴 生活用品</option>
+                    <option value="電子用品">💻 電子用品</option>
+                    <option value="貴重物品">💎 貴重物品</option>
+                    <option value="其他">📦 其他</option>
+                </select>
+            </div>
+            <div class="input-group" style="flex:0 0 auto">
+                <button class="btn-primary" id="submitBtn">✚ 發佈尋物帖</button>
+            </div>
+        </div>
+        <div style="font-size:0.7rem; color:#b91c1c; margin-top: 0.5rem; display: none;" id="errorMsg">請填寫尋物內容</div>
+    </div>
+
+    <!-- 過濾欄位 -->
+    <div class="filters-panel">
+        <div class="filter-group">
+            <span class="filter-label">🔖 狀態：</span>
+            <div class="filter-buttons" id="statusFilterGroup">
+                <button data-status="all" class="filter-btn active">全部</button>
+                <button data-status="active" class="filter-btn">進行中 (active)</button>
+                <button data-status="done" class="filter-btn">已完成 (done)</button>
+            </div>
+        </div>
+        <div class="filter-group">
+            <span class="filter-label">🗂️ 分類：</span>
+            <div class="filter-buttons" id="categoryFilterGroup">
+                <button data-cat="all" class="filter-btn active">全部</button>
+                <button data-cat="書本" class="filter-btn">書本</button>
+                <button data-cat="文具" class="filter-btn">文具</button>
+                <button data-cat="生活用品" class="filter-btn">生活用品</button>
+                <button data-cat="電子用品" class="filter-btn">電子用品</button>
+                <button data-cat="貴重物品" class="filter-btn">貴重物品</button>
+                <button data-cat="其他" class="filter-btn">其他</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 渲染卡片區域 -->
+    <div id="recordsContainer" class="records-grid">
+        <!-- 動態產生卡片 -->
+        <div class="empty-state">✨ 目前沒有貼文，快來發佈第一則尋物啟示吧 ✨</div>
+    </div>
+    <footer>⚡ 匿名發佈 • 按讚幫助曝光 • 完成尋獲後可標記 done</footer>
+</div>
+
+<script>
+    // ======================= DATA CONTRACT =======================
+    // 每一筆 record 結構定義 (欄位與用途)
+    // --------------------------------------------------------------
+    // id         : String / 唯一識別碼 (使用 Date.now() + 隨機數) 用於操作更新刪除
+    // createdAt  : Number / 時間戳記 (毫秒) 用於排序、顯示相對時間或完整日期
+    // status     : String / 'active' 或 'done' ，用來區分尋物是否已完成
+    // content    : String / 尋物內容描述，必填，不得為空字串
+    // category   : String / 分類 (書本/文具/生活用品/電子用品/貴重物品/其他)
+    // likes      : Number / 按讚數量，預設0，可透過 +1 增加
+    // ==============================================================
+    
+    (function() {
+        // ---------- 固定 localStorage key ----------
+        const STORAGE_KEY = "records";
+
+        // ---------- 全域資料狀態 ----------
+        let allRecords = [];            // 儲存所有原始記錄 (依時間倒序展示，但新增在最上方)
+        let currentStatusFilter = "all";   // all, active, done
+        let currentCategoryFilter = "all"; // all, 書本, 文具 ...
+
+        // ---------- DOM 元素 ----------
+        const contentInput = document.getElementById("contentInput");
+        const categorySelect = document.getElementById("categorySelect");
+        const submitBtn = document.getElementById("submitBtn");
+        const errorMsgDiv = document.getElementById("errorMsg");
+        const recordsContainer = document.getElementById("recordsContainer");
+
+        // ========== 1. 輔助函數：儲存至 localStorage ==========
+        function saveData(record) {
+            // 此功能按規格設計為「儲存單筆或者同步整個陣列」，但為了清楚定義，我們設計 saveData 接受整份陣列持久化。
+            // 但依作業要求 saveData(record) 參數名為 record，為了實踐 clean code，我會設計 saveDataToLocal 保存全部陣列，
+            // 新增一個內部保存方法，但因為 requirement 要求 function 名稱固定 saveData(record) 並且要能儲存，
+            // 實際上為了彈性，建立一個 saveAllRecordsToLocal 讓所有變動後儲存，然後 export saveData 可單筆新增並儲存 allRecords 的更新.
+            // 但為符合規範： saveData(record) 功能可以「接收 record 物件，將其加入 allRecords 並寫回 localStorage」，
+            // 此外 update 時也會呼叫 saveData 更新全部。所以我們做一個通用持久化。
+            // 為了保持乾淨，實作一個內部函數 _persist(recordsArray)，但要求明確列出 saveData，我就把 saveData 定義為「儲存目前 allRecords」
+            // 但是參數若為 record 可以有不同的實作。因為規格可能是要單筆儲存，但為了架構統一定義以下:
+            // 實際: saveData(record) 為『將這筆資料新增到 allRecords 並儲存』；
+            // 而更新全體時，可呼叫 saveData(null, optionalArray) 但違背函數簽名，為了不破壞規則，再建立一個 _syncToLocal。
+            // 但題目要求 JavaScript 必須清楚分開 createRecord, saveData, loadData, updateRecord, renderList。
+            // 我將 saveData 定義為「將當前 allRecords 同步進 localStorage」，符合儲存機制，參數可不使用或忽略。
+            // 但是每當變動後一定呼叫 saveData() 來做持久化。比較直覺。
+        }
+        // 重新設計: 按照規範定義清楚的 saveData 用途是寫入 localStorage (全部更新)。
+        // 但為了搭配 updateRecord 流程，我們確保所有變動最終調用 saveData() 不帶參數儲存全部。
+        function saveData() {
+            // 用途：將 allRecords 全量同步到 localStorage
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
+            } catch(e) {
+                console.warn("儲存失敗", e);
+            }
+        }
+
+        // ========== 2. 載入資料 ==========
+        function loadData() {
+            // 從 localStorage 讀取並回傳紀錄陣列，若無資料則初始化空陣列
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) {
+                return [];   // 無任何示範資料，完全乾淨
+            }
+            try {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    // 確保每個舊資料必備欄位 (防止缺欄位)
+                    return parsed.map(item => {
+                        return {
+                            id: item.id || `legacy_${Date.now()}_${Math.random()}`,
+                            createdAt: item.createdAt || Date.now(),
+                            status: (item.status === 'active' || item.status === 'done') ? item.status : 'active',
+                            content: item.content || "",
+                            category: item.category || "其他",
+                            likes: typeof item.likes === 'number' ? item.likes : 0
+                        };
+                    });
+                }
+            } catch(e) {}
+            return [];
+        }
+
+        // ========== 3. 建立新紀錄 (依照表單) ==========
+        function createRecord(formData) {
+            // formData 為物件包含 content, category
+            // 回傳一個符合 contract 的新 record 物件 (尚未儲存)
+            const newId = Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+            const nowTimestamp = Date.now();
+            return {
+                id: newId,
+                createdAt: nowTimestamp,
+                status: "active",      // 預設 active
+                content: formData.content.trim(),
+                category: formData.category,
+                likes: 0
+            };
+        }
+
+        // ========== 4. 更新特定記錄 (接受 id 與 changes) ==========
+        function updateRecord(id, changes) {
+            // changes 物件: 可更新 status, likes 等欄位
+            const index = allRecords.findIndex(rec => rec.id === id);
+            if (index === -1) return false;
+            const oldRecord = allRecords[index];
+            const updatedRecord = { ...oldRecord, ...changes };
+            allRecords[index] = updatedRecord;
+            saveData();            // 變動後直接持久化
+            return true;
+        }
+
+        // ---------- 內部輔助: 新增一篇帖文 (流程整合) ----------
+        function addNewPost(content, category) {
+            if (!content || content.trim() === "") {
+                errorMsgDiv.style.display = "block";
+                setTimeout(() => { errorMsgDiv.style.display = "none"; }, 2000);
+                return false;
+            }
+            errorMsgDiv.style.display = "none";
+            const newRecord = createRecord({ content: content.trim(), category: category });
+            // 新增到最上方 (unshift)
+            allRecords.unshift(newRecord);
+            saveData();            // 儲存至 localStorage
+            // 重新渲染 (保持當前過濾器)
+            renderFilteredList();
+            return true;
+        }
+
+        // ========== 5. 渲染列表 (根據傳入 recordsToShow) ==========
+        function renderList(recordsToShow) {
+            // 清空容器
+            recordsContainer.innerHTML = "";
+            if (!recordsToShow || recordsToShow.length === 0) {
+                recordsContainer.innerHTML = '<div class="empty-state">📭 沒有符合條件的尋物帖，試試變更篩選器～</div>';
+                return;
+            }
+            // 依照 createdAt 降序 (最新在上，但 unshift 後排序確保新貼文在上方，不過以防萬一，強制排序)
+            const sorted = [...recordsToShow].sort((a,b) => b.createdAt - a.createdAt);
+            for (let record of sorted) {
+                const card = document.createElement("div");
+                card.className = "card";
+                if (record.status === "done") card.classList.add("done-card");
+                
+                // 格式化日期
+                const dateObj = new Date(record.createdAt);
+                const formattedDate = `${dateObj.getFullYear()}/${dateObj.getMonth()+1}/${dateObj.getDate()} ${dateObj.getHours().toString().padStart(2,'0')}:${dateObj.getMinutes().toString().padStart(2,'0')}`;
+                
+                // 分類 & 狀態文字
+                const categoryMap = {
+                    "書本":"📖 書本","文具":"✒️ 文具","生活用品":"🧴 生活用品",
+                    "電子用品":"💻 電子用品","貴重物品":"💎 貴重物品","其他":"📦 其他"
+                };
+                const categoryShow = categoryMap[record.category] || record.category;
+                const statusText = record.status === "active" ? "🔍 尋找中" : "✅ 已完成尋獲";
+                const statusClass = record.status === "active" ? "" : "done";
+                
+                // 卡片內部HTML
+                card.innerHTML = `
+                    <div class="card-header">
+                        <span class="category-badge">${categoryShow}</span>
+                        <span class="status-badge ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="content-text">${escapeHtml(record.content)}</div>
+                    <div class="meta-info">
+                        <span>🕒 ${formattedDate}</span>
+                        <span>❤️ ${record.likes} 人幫推</span>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn-like" data-id="${record.id}">👍 +1 幫推</button>
+                        <button class="btn-toggle" data-id="${record.id}" data-status="${record.status}">${record.status === 'active' ? '🏁 標記完成' : '🔄 恢復 active'}</button>
+                    </div>
+                `;
+                recordsContainer.appendChild(card);
+            }
+            
+            // 綁定動態事件 (事件委託也可以，但直接綁定在按鈕上)
+            document.querySelectorAll('.btn-like').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = btn.getAttribute('data-id');
+                    const record = allRecords.find(r => r.id === id);
+                    if (record) {
+                        const newLikes = (record.likes || 0) + 1;
+                        updateRecord(id, { likes: newLikes });
+                        renderFilteredList();  // 重新套用過濾器刷新
+                    }
+                });
+            });
+            
+            document.querySelectorAll('.btn-toggle').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = btn.getAttribute('data-id');
+                    const currentStatus = btn.getAttribute('data-status');
+                    const newStatus = currentStatus === 'active' ? 'done' : 'active';
+                    updateRecord(id, { status: newStatus });
+                    renderFilteredList();
+                });
+            });
+        }
+        
+        // XSS 防護簡易函數
+        function escapeHtml(str) {
+            if (!str) return "";
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+                return c;
+            });
+        }
+        
+        // ---------- 過濾邏輯 + 重新渲染 (依據當前兩個過濾器狀態) ----------
+        function getFilteredRecords() {
+            let filtered = [...allRecords];
+            // 狀態過濾
+            if (currentStatusFilter !== "all") {
+                filtered = filtered.filter(rec => rec.status === currentStatusFilter);
+            }
+            // 分類過濾
+            if (currentCategoryFilter !== "all") {
+                filtered = filtered.filter(rec => rec.category === currentCategoryFilter);
+            }
+            return filtered;
+        }
+        
+        function renderFilteredList() {
+            const filtered = getFilteredRecords();
+            renderList(filtered);
+        }
+        
+        // ---------- 設定過濾器按鈕與事件 ----------
+        function initFilters() {
+            // 狀態過濾器按鈕
+            const statusBtns = document.querySelectorAll("#statusFilterGroup .filter-btn");
+            const categoryBtns = document.querySelectorAll("#categoryFilterGroup .filter-btn");
+            
+            statusBtns.forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const statusVal = btn.getAttribute("data-status");
+                    if (statusVal) {
+                        currentStatusFilter = statusVal;
+                        // UI 切換 active 樣式
+                        statusBtns.forEach(b => b.classList.remove("active"));
+                        btn.classList.add("active");
+                        renderFilteredList();
+                    }
+                });
+            });
+            
+            categoryBtns.forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const catVal = btn.getAttribute("data-cat");
+                    if (catVal) {
+                        currentCategoryFilter = catVal;
+                        categoryBtns.forEach(b => b.classList.remove("active"));
+                        btn.classList.add("active");
+                        renderFilteredList();
+                    }
+                });
+            });
+        }
+        
+        // ---------- 初始化載入與表單監聽 ----------
+        function init() {
+            // 載入已儲存資料
+            const stored = loadData();
+            allRecords = stored;
+            // 排序 : 最新發布優先呈現 (但卡片渲染以 createdAt 降序)
+            allRecords.sort((a,b) => b.createdAt - a.createdAt);
+            // 初始過濾器狀態
+            currentStatusFilter = "all";
+            currentCategoryFilter = "all";
+            // 設定 UI 過濾器樣式
+            document.querySelector("#statusFilterGroup .filter-btn[data-status='all']")?.classList.add("active");
+            document.querySelector("#categoryFilterGroup .filter-btn[data-cat='all']")?.classList.add("active");
+            renderFilteredList();
+            initFilters();
+            
+            // 新增按鈕監聽
+            submitBtn.addEventListener("click", () => {
+                const content = contentInput.value;
+                const category = categorySelect.value;
+                const success = addNewPost(content, category);
+                if (success) {
+                    contentInput.value = "";    // 清空輸入框
+                    // 新增完後過濾器保持原先，但最新貼文顯示在最上方
+                    renderFilteredList();
+                }
+            });
+            // 容錯按 enter 快捷
+            contentInput.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    submitBtn.click();
+                }
+            });
+        }
+        
+        // 啟動整個系統
+        init();
+    })();
+</script>
+</body>
+</html>

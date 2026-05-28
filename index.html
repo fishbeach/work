@@ -18,13 +18,11 @@
             padding: 2rem 1rem;
         }
 
-        /* 主容器 */
         .container {
             max-width: 1200px;
             margin: 0 auto;
         }
 
-        /* 標頭 */
         .header {
             text-align: center;
             margin-bottom: 2rem;
@@ -46,7 +44,6 @@
             font-weight: 500;
         }
 
-        /* 新增表單卡片 */
         .form-card {
             background: white;
             border-radius: 28px;
@@ -113,7 +110,6 @@
             transform: translateY(-2px);
         }
 
-        /* 過濾器區域 */
         .filters-panel {
             background: rgba(255,255,255,0.75);
             backdrop-filter: blur(4px);
@@ -166,14 +162,12 @@
             box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
 
-        /* 卡片網格 */
         .records-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
             gap: 1.5rem;
         }
 
-        /* 卡片設計 */
         .card {
             background: white;
             border-radius: 28px;
@@ -373,158 +367,169 @@
 
     <!-- 渲染卡片區域 -->
     <div id="recordsContainer" class="records-grid">
-        <!-- 動態產生卡片 -->
-        <div class="empty-state">✨ 目前沒有貼文，快來發佈第一則尋物啟示吧 ✨</div>
+        <div class="empty-state">✨ 正在載入資料… ✨</div>
     </div>
     <footer>⚡ 匿名發佈 • 按讚幫助曝光 • 完成尋獲後可標記 done</footer>
 </div>
 
 <script>
-    // ======================= DATA CONTRACT =======================
-    // 每一筆 record 結構定義 (欄位與用途)
-    // --------------------------------------------------------------
-    // id         : String / 唯一識別碼 (使用 Date.now() + 隨機數) 用於操作更新刪除
-    // createdAt  : Number / 時間戳記 (毫秒) 用於排序、顯示相對時間或完整日期
-    // status     : String / 'active' 或 'done' ，用來區分尋物是否已完成
-    // content    : String / 尋物內容描述，必填，不得為空字串
-    // category   : String / 分類 (書本/文具/生活用品/電子用品/貴重物品/其他)
-    // likes      : Number / 按讚數量，預設0，可透過 +1 增加
-    // ==============================================================
-    
     (function() {
-        // ---------- 固定 localStorage key ----------
+        // ========== Apps Script 後端網址 ==========
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxtB-5nm4FcjKqhADYVR3t2BsxSRVSBgi965zROqIhzzPs5snn0uiqYsfdBvcFjXgGQyA/exec";
+
         const STORAGE_KEY = "records";
 
-        // ---------- 全域資料狀態 ----------
-        let allRecords = [];            // 儲存所有原始記錄 (依時間倒序展示，但新增在最上方)
-        let currentStatusFilter = "all";   // all, active, done
-        let currentCategoryFilter = "all"; // all, 書本, 文具 ...
-
-        // ---------- DOM 元素 ----------
+        // ---------- DOM ----------
         const contentInput = document.getElementById("contentInput");
         const categorySelect = document.getElementById("categorySelect");
         const submitBtn = document.getElementById("submitBtn");
         const errorMsgDiv = document.getElementById("errorMsg");
         const recordsContainer = document.getElementById("recordsContainer");
 
-        // ========== 1. 輔助函數：儲存至 localStorage ==========
-        function saveData(record) {
-            // 此功能按規格設計為「儲存單筆或者同步整個陣列」，但為了清楚定義，我們設計 saveData 接受整份陣列持久化。
-            // 但依作業要求 saveData(record) 參數名為 record，為了實踐 clean code，我會設計 saveDataToLocal 保存全部陣列，
-            // 新增一個內部保存方法，但因為 requirement 要求 function 名稱固定 saveData(record) 並且要能儲存，
-            // 實際上為了彈性，建立一個 saveAllRecordsToLocal 讓所有變動後儲存，然後 export saveData 可單筆新增並儲存 allRecords 的更新.
-            // 但為符合規範： saveData(record) 功能可以「接收 record 物件，將其加入 allRecords 並寫回 localStorage」，
-            // 此外 update 時也會呼叫 saveData 更新全部。所以我們做一個通用持久化。
-            // 為了保持乾淨，實作一個內部函數 _persist(recordsArray)，但要求明確列出 saveData，我就把 saveData 定義為「儲存目前 allRecords」
-            // 但是參數若為 record 可以有不同的實作。因為規格可能是要單筆儲存，但為了架構統一定義以下:
-            // 實際: saveData(record) 為『將這筆資料新增到 allRecords 並儲存』；
-            // 而更新全體時，可呼叫 saveData(null, optionalArray) 但違背函數簽名，為了不破壞規則，再建立一個 _syncToLocal。
-            // 但題目要求 JavaScript 必須清楚分開 createRecord, saveData, loadData, updateRecord, renderList。
-            // 我將 saveData 定義為「將當前 allRecords 同步進 localStorage」，符合儲存機制，參數可不使用或忽略。
-            // 但是每當變動後一定呼叫 saveData() 來做持久化。比較直覺。
-        }
-        // 重新設計: 按照規範定義清楚的 saveData 用途是寫入 localStorage (全部更新)。
-        // 但為了搭配 updateRecord 流程，我們確保所有變動最終調用 saveData() 不帶參數儲存全部。
-        function saveData() {
-            // 用途：將 allRecords 全量同步到 localStorage
-            try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
-            } catch(e) {
-                console.warn("儲存失敗", e);
-            }
+        // ---------- 狀態 ----------
+        let allRecords = [];
+        let currentStatusFilter = "all";
+        let currentCategoryFilter = "all";
+
+        // ========== 後端連接 ==========
+        async function fetchRecordsFromSheet() {
+            const res = await fetch(APPS_SCRIPT_URL);
+            const data = await res.json();
+            if (!data.ok) throw new Error(data.error || "讀取失敗");
+            return data.records.map(normalizeRecord);
         }
 
-        // ========== 2. 載入資料 ==========
-        function loadData() {
-            // 從 localStorage 讀取並回傳紀錄陣列，若無資料則初始化空陣列
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (!raw) {
-                return [];   // 無任何示範資料，完全乾淨
-            }
-            try {
-                const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed)) {
-                    // 確保每個舊資料必備欄位 (防止缺欄位)
-                    return parsed.map(item => {
-                        return {
-                            id: item.id || `legacy_${Date.now()}_${Math.random()}`,
-                            createdAt: item.createdAt || Date.now(),
-                            status: (item.status === 'active' || item.status === 'done') ? item.status : 'active',
-                            content: item.content || "",
-                            category: item.category || "其他",
-                            likes: typeof item.likes === 'number' ? item.likes : 0
-                        };
-                    });
-                }
-            } catch(e) {}
-            return [];
+        async function syncToSheet(payload) {
+            const res = await fetch(APPS_SCRIPT_URL, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!data.ok) throw new Error(data.error || "同步失敗");
+            return data;
         }
 
-        // ========== 3. 建立新紀錄 (依照表單) ==========
-        function createRecord(formData) {
-            // formData 為物件包含 content, category
-            // 回傳一個符合 contract 的新 record 物件 (尚未儲存)
-            const newId = Date.now() + '-' + Math.random().toString(36).substring(2, 8);
-            const nowTimestamp = Date.now();
+        function normalizeRecord(sheetRow) {
             return {
-                id: newId,
-                createdAt: nowTimestamp,
-                status: "active",      // 預設 active
-                content: formData.content.trim(),
-                category: formData.category,
-                likes: 0
+                id: sheetRow.ID || sheetRow.id || "",
+                createdAt: (function() {
+                    const raw = sheetRow.CreatedAt || sheetRow.createdAt;
+                    if (!raw) return Date.now();
+                    const ts = new Date(raw).getTime();
+                    return isNaN(ts) ? Date.now() : ts;
+                })(),
+                status: (sheetRow.Status || sheetRow.status || "active").toLowerCase() === "done" ? "done" : "active",
+                content: sheetRow.Content || sheetRow.content || "",
+                category: sheetRow.Category || sheetRow.category || "其他",
+                likes: Number(sheetRow.Likes ?? sheetRow.likes ?? 0)
             };
         }
 
-        // ========== 4. 更新特定記錄 (接受 id 與 changes) ==========
-        function updateRecord(id, changes) {
-            // changes 物件: 可更新 status, likes 等欄位
-            const index = allRecords.findIndex(rec => rec.id === id);
-            if (index === -1) return false;
-            const oldRecord = allRecords[index];
-            const updatedRecord = { ...oldRecord, ...changes };
-            allRecords[index] = updatedRecord;
-            saveData();            // 變動後直接持久化
-            return true;
+        // ========== 本地儲存 (localStorage) ==========
+        function saveToLocalStorage(records) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+            } catch(e) {}
         }
 
-        // ---------- 內部輔助: 新增一篇帖文 (流程整合) ----------
-        function addNewPost(content, category) {
+        function loadFromLocalStorage() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return [];
+            try {
+                return JSON.parse(raw);
+            } catch(e) {
+                return [];
+            }
+        }
+
+        // ========== 主要資料流 ==========
+        async function loadDataFromSheet() {
+            try {
+                const records = await fetchRecordsFromSheet();
+                allRecords = records;
+                allRecords.sort((a,b) => b.createdAt - a.createdAt);
+                saveToLocalStorage(allRecords);
+                renderFilteredList();
+            } catch (err) {
+                console.warn("後端載入失敗，改用本地快取", err);
+                allRecords = loadFromLocalStorage();
+                allRecords.sort((a,b) => b.createdAt - a.createdAt);
+                renderFilteredList();
+            }
+        }
+
+        async function addNewPost(content, category) {
             if (!content || content.trim() === "") {
                 errorMsgDiv.style.display = "block";
                 setTimeout(() => { errorMsgDiv.style.display = "none"; }, 2000);
-                return false;
+                return;
             }
             errorMsgDiv.style.display = "none";
-            const newRecord = createRecord({ content: content.trim(), category: category });
-            // 新增到最上方 (unshift)
+
+            const newRecord = {
+                id: Date.now() + '-' + Math.random().toString(36).substring(2,8),
+                createdAt: Date.now(),
+                status: "active",
+                content: content.trim(),
+                category: category,
+                likes: 0
+            };
+
+            // 先樂觀更新 UI 並存入 localStorage
             allRecords.unshift(newRecord);
-            saveData();            // 儲存至 localStorage
-            // 重新渲染 (保持當前過濾器)
+            saveToLocalStorage(allRecords);
             renderFilteredList();
-            return true;
+            contentInput.value = "";
+
+            // 嘗試同步到 Google Sheet
+            try {
+                await syncToSheet({ action: "create", record: newRecord });
+                // 同步成功後重新拉取以確保一致性
+                await loadDataFromSheet();
+            } catch(e) {
+                console.warn("同步失敗，記錄僅保留在本地", e);
+                // 保留在本地即可，不影響使用
+            }
         }
 
-        // ========== 5. 渲染列表 (根據傳入 recordsToShow) ==========
+        async function updateRecord(id, changes) {
+            // 先本地更新
+            const idx = allRecords.findIndex(r => r.id === id);
+            if (idx === -1) return;
+            const oldRecord = allRecords[idx];
+            const updatedRecord = { ...oldRecord, ...changes };
+            allRecords[idx] = updatedRecord;
+            saveToLocalStorage(allRecords);
+            renderFilteredList();
+
+            // 同步到後端
+            try {
+                await syncToSheet({ action: "update", id, changes });
+                // 再次從後端拉取最新資料
+                await loadDataFromSheet();
+            } catch(e) {
+                console.warn("更新同步失敗", e);
+                // 本地狀態已更新，保持原樣
+            }
+        }
+
+        // ========== 渲染 ==========
         function renderList(recordsToShow) {
-            // 清空容器
             recordsContainer.innerHTML = "";
             if (!recordsToShow || recordsToShow.length === 0) {
                 recordsContainer.innerHTML = '<div class="empty-state">📭 沒有符合條件的尋物帖，試試變更篩選器～</div>';
                 return;
             }
-            // 依照 createdAt 降序 (最新在上，但 unshift 後排序確保新貼文在上方，不過以防萬一，強制排序)
             const sorted = [...recordsToShow].sort((a,b) => b.createdAt - a.createdAt);
             for (let record of sorted) {
                 const card = document.createElement("div");
                 card.className = "card";
                 if (record.status === "done") card.classList.add("done-card");
-                
-                // 格式化日期
+
                 const dateObj = new Date(record.createdAt);
                 const formattedDate = `${dateObj.getFullYear()}/${dateObj.getMonth()+1}/${dateObj.getDate()} ${dateObj.getHours().toString().padStart(2,'0')}:${dateObj.getMinutes().toString().padStart(2,'0')}`;
-                
-                // 分類 & 狀態文字
+
                 const categoryMap = {
                     "書本":"📖 書本","文具":"✒️ 文具","生活用品":"🧴 生活用品",
                     "電子用品":"💻 電子用品","貴重物品":"💎 貴重物品","其他":"📦 其他"
@@ -532,8 +537,7 @@
                 const categoryShow = categoryMap[record.category] || record.category;
                 const statusText = record.status === "active" ? "🔍 尋找中" : "✅ 已完成尋獲";
                 const statusClass = record.status === "active" ? "" : "done";
-                
-                // 卡片內部HTML
+
                 card.innerHTML = `
                     <div class="card-header">
                         <span class="category-badge">${categoryShow}</span>
@@ -551,34 +555,29 @@
                 `;
                 recordsContainer.appendChild(card);
             }
-            
-            // 綁定動態事件 (事件委託也可以，但直接綁定在按鈕上)
+
+            // 事件綁定
             document.querySelectorAll('.btn-like').forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
                     const id = btn.getAttribute('data-id');
                     const record = allRecords.find(r => r.id === id);
                     if (record) {
                         const newLikes = (record.likes || 0) + 1;
                         updateRecord(id, { likes: newLikes });
-                        renderFilteredList();  // 重新套用過濾器刷新
                     }
                 });
             });
-            
+
             document.querySelectorAll('.btn-toggle').forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
                     const id = btn.getAttribute('data-id');
                     const currentStatus = btn.getAttribute('data-status');
                     const newStatus = currentStatus === 'active' ? 'done' : 'active';
                     updateRecord(id, { status: newStatus });
-                    renderFilteredList();
                 });
             });
         }
-        
-        // XSS 防護簡易函數
+
         function escapeHtml(str) {
             if (!str) return "";
             return str.replace(/[&<>]/g, function(m) {
@@ -586,49 +585,42 @@
                 if (m === '<') return '&lt;';
                 if (m === '>') return '&gt;';
                 return m;
-            }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
-                return c;
             });
         }
-        
-        // ---------- 過濾邏輯 + 重新渲染 (依據當前兩個過濾器狀態) ----------
+
         function getFilteredRecords() {
             let filtered = [...allRecords];
-            // 狀態過濾
             if (currentStatusFilter !== "all") {
                 filtered = filtered.filter(rec => rec.status === currentStatusFilter);
             }
-            // 分類過濾
             if (currentCategoryFilter !== "all") {
                 filtered = filtered.filter(rec => rec.category === currentCategoryFilter);
             }
             return filtered;
         }
-        
+
         function renderFilteredList() {
             const filtered = getFilteredRecords();
             renderList(filtered);
         }
-        
-        // ---------- 設定過濾器按鈕與事件 ----------
+
+        // ========== 過濾器 ==========
         function initFilters() {
-            // 狀態過濾器按鈕
             const statusBtns = document.querySelectorAll("#statusFilterGroup .filter-btn");
             const categoryBtns = document.querySelectorAll("#categoryFilterGroup .filter-btn");
-            
+
             statusBtns.forEach(btn => {
                 btn.addEventListener("click", () => {
                     const statusVal = btn.getAttribute("data-status");
                     if (statusVal) {
                         currentStatusFilter = statusVal;
-                        // UI 切換 active 樣式
                         statusBtns.forEach(b => b.classList.remove("active"));
                         btn.classList.add("active");
                         renderFilteredList();
                     }
                 });
             });
-            
+
             categoryBtns.forEach(btn => {
                 btn.addEventListener("click", () => {
                     const catVal = btn.getAttribute("data-cat");
@@ -641,35 +633,19 @@
                 });
             });
         }
-        
-        // ---------- 初始化載入與表單監聽 ----------
+
+        // ========== 啟動 ==========
         function init() {
-            // 載入已儲存資料
-            const stored = loadData();
-            allRecords = stored;
-            // 排序 : 最新發布優先呈現 (但卡片渲染以 createdAt 降序)
-            allRecords.sort((a,b) => b.createdAt - a.createdAt);
-            // 初始過濾器狀態
-            currentStatusFilter = "all";
-            currentCategoryFilter = "all";
-            // 設定 UI 過濾器樣式
-            document.querySelector("#statusFilterGroup .filter-btn[data-status='all']")?.classList.add("active");
-            document.querySelector("#categoryFilterGroup .filter-btn[data-cat='all']")?.classList.add("active");
-            renderFilteredList();
             initFilters();
-            
-            // 新增按鈕監聽
+            // 優先從 Google Sheet 載入，失敗則用 localStorage
+            loadDataFromSheet();
+
             submitBtn.addEventListener("click", () => {
                 const content = contentInput.value;
                 const category = categorySelect.value;
-                const success = addNewPost(content, category);
-                if (success) {
-                    contentInput.value = "";    // 清空輸入框
-                    // 新增完後過濾器保持原先，但最新貼文顯示在最上方
-                    renderFilteredList();
-                }
+                addNewPost(content, category);
             });
-            // 容錯按 enter 快捷
+
             contentInput.addEventListener("keypress", (e) => {
                 if (e.key === "Enter") {
                     e.preventDefault();
@@ -677,10 +653,9 @@
                 }
             });
         }
-        
-        // 啟動整個系統
+
         init();
     })();
 </script>
 </body>
-</html>
+</html>s
